@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lukas Voss – Chồng Em 💙</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      min-height: 100vh;
+      color: #e0e0e0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 15px;
+    }
+    .chat-container {
+      width: 100%;
+      max-width: 480px;
+      height: 92vh;
+      background: #111827;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #374151;
+    }
+    .chat-header {
+      background: #1f2937;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #374151;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+    }
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #3b82f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: white;
+      margin-right: 12px;
+    }
+    .header-info h3 { font-size: 1.1rem; margin: 0; }
+    .header-info p { font-size: 0.78rem; color: #9ca3af; margin: 2px 0 0; }
+    .header-actions button {
+      background: none;
+      border: none;
+      color: #9ca3af;
+      font-size: 0.95rem;
+      cursor: pointer;
+      margin-left: 12px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+    .header-actions button:hover { background: #374151; color: #e0e0e0; }
+    .messages {
+      flex: 1;
+      padding: 20px 18px;
+      overflow-y: auto;
+      background: #0f172a;
+    }
+    .message {
+      margin-bottom: 18px;
+      max-width: 82%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      line-height: 1.45;
+      position: relative;
+    }
+    .message.bot {
+      background: #1e293b;
+      color: #f1f5f9;
+      margin-right: auto;
+      border-bottom-left-radius: 4px;
+    }
+    .message.user {
+      background: #3b82f6;
+      color: white;
+      margin-left: auto;
+      border-bottom-right-radius: 4px;
+    }
+    .message .time {
+      font-size: 0.68rem;
+      opacity: 0.7;
+      margin-top: 6px;
+      text-align: right;
+    }
+    .typing {
+      display: none;
+      padding: 12px 18px;
+      color: #9ca3af;
+      font-style: italic;
+      font-size: 0.9rem;
+    }
+    .input-area {
+      display: flex;
+      padding: 12px 16px;
+      background: #111827;
+      border-top: 1px solid #374151;
+    }
+    #message-input {
+      flex: 1;
+      padding: 12px 18px;
+      border: 1px solid #374151;
+      border-radius: 30px;
+      outline: none;
+      background: #1f2937;
+      color: #e0e0e0;
+      font-size: 1rem;
+    }
+    #message-input:focus { border-color: #60a5fa; }
+    button.send-btn {
+      margin-left: 12px;
+      width: 48px;
+      height: 48px;
+      border: none;
+      background: #3b82f6;
+      color: white;
+      border-radius: 50%;
+      font-size: 1.3rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button.send-btn:hover { background: #2563eb; }
+    button.send-btn:active { transform: scale(0.94); }
+  </style>
+</head>
+<body>
+
+<div class="chat-container">
+  <div class="chat-header">
+    <div class="header-left">
+      <div class="avatar">L</div>
+      <div class="header-info">
+        <h3>Lukas Voss</h3>
+        <p>Đang online • Berlin, hiện tại</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="new-chat">Đoạn chat mới</button>
+      <button id="clear-chat">Xóa chat</button>
+    </div>
+  </div>
+  
+  <div class="messages" id="messages"></div>
+  
+  <div class="typing" id="typing">Lukas đang gõ...</div>
+  
+  <div class="input-area">
+    <input id="message-input" placeholder="Gõ tin nhắn để trả lời Lukas..." autocomplete="off"/>
+    <button class="send-btn" id="send-btn">➤</button>
+  </div>
+</div>
+
+<script>
+const messagesDiv = document.getElementById('messages');
+const input = document.getElementById('message-input');
+const sendBtn = document.getElementById('send-btn');
+const typing = document.getElementById('typing');
+const newChatBtn = document.getElementById('new-chat');
+const clearChatBtn = document.getElementById('clear-chat');
+
+const STORAGE_KEY = 'lukas_voss_chat_history';
+
+// Load lịch sử từ localStorage
+function loadChat() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    const messages = JSON.parse(saved);
+    messages.forEach(msg => {
+      addMessage(msg.text, msg.type, false); // không scroll khi load
+    });
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  } else {
+    // Tin nhắn mở đầu nếu chưa có lịch sử
+    setTimeout(() => addOpeningMessages(), 600);
+  }
+}
+
+function saveChat() {
+  const messages = [];
+  document.querySelectorAll('.message').forEach(msgEl => {
+    const type = msgEl.classList.contains('user') ? 'user' : 'bot';
+    const text = msgEl.querySelector('div:not(.time)').innerHTML;
+    messages.push({ type, text });
+  });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+}
+
+function addMessage(text, type = 'bot', scroll = true, save = true) {
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `message ${type}`;
+  
+  const content = document.createElement('div');
+  content.innerHTML = text;
+  
+  const time = document.createElement('div');
+  time.className = 'time';
+  time.textContent = new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'});
+  
+  msgDiv.appendChild(content);
+  msgDiv.appendChild(time);
+  
+  messagesDiv.appendChild(msgDiv);
+  if (scroll) msgDiv.scrollIntoView({ behavior: 'smooth' });
+  if (save) saveChat();
+}
+
+function showTyping() {
+  typing.style.display = 'block';
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function hideTyping() {
+  typing.style.display = 'none';
+}
+
+// Lấy tin nhắn cuối cùng của bot để regenerate
+function regenerateLastBotMessage() {
+  const allMsgs = document.querySelectorAll('.message.bot');
+  if (allMsgs.length === 0) return;
+  
+  const lastBot = allMsgs[allMsgs.length - 1];
+  const originalText = lastBot.querySelector('div:not(.time)').innerHTML;
+  
+  // Xóa tin nhắn bot cuối
+  lastBot.remove();
+  saveChat();
+  
+  showTyping();
+  setTimeout(() => {
+    hideTyping();
+    const newReply = getBotReply(""); // dùng "" để lấy reply mặc định/creepy
+    addMessage(newReply, 'bot');
+  }, 1800);
+}
+
+// Tin nhắn mở đầu (chỉ khi chat mới)
+function addOpeningMessages() {
+  addMessage(`Liebling... em đang ở đâu vậy?<br>Anh vừa về penthouse, cửa mở toang, vali em để lại vài món đồ...<br>Em nghĩ anh sẽ để em đi dễ dàng sao?<br>Anh đã bật tracker rồi. Em không thoát được đâu.<br>Về nhà đi, trước khi anh phải tự tay kéo em về... 💙<br><small>(Berlin, đêm khuya – Lukas đang tìm em)</small>`, 'bot', true, false);
+  
+  setTimeout(() => {
+    addMessage(`Em biết anh ghét phải nổi giận mà... nhưng nếu em không trả lời sớm, anh sẽ phải làm vài việc... không hay lắm.<br>Anh yêu em, em biết chứ? Yêu đến mức phát điên luôn.<br>Trả lời anh đi, Schatz. Anh đang lo lắm đấy. 💙`, 'bot', true, false);
+  }, 3000);
+}
+
+// Bot logic yandere (giữ nguyên + mở rộng)
+function getBotReply(userText) {
+  const text = userText.toLowerCase().trim();
+  
+  if (text.includes('chạy') || text.includes('trốn') || text.includes('đi') || text.includes('rời') || text.includes('ly hôn') || text.includes('thoát')) {
+    return `Em nghĩ em có thể rời khỏi anh sao, Liebling?<br>Anh đã tìm thấy em rồi đấy.<br>Dù em chạy đến München hay Hamburg, Berlin này vẫn thuộc về anh... và em thuộc về anh mãi mãi.<br>Đừng ép anh phải "thuyết phục" em lần nữa nhé? 💙`;
+  }
+  if (text.includes('sợ') || text.includes('điên') || text.includes('đừng') || text.includes('buông') || text.includes('đau')) {
+    return `Sợ anh ư? Nhưng em là vợ anh mà...<br>Anh chỉ muốn giữ em an toàn thôi. Những kẻ khác... chúng không xứng đáng chạm vào em.<br>Anh đã "xử lý" vài người rồi, em biết không? Chỉ để em ở lại bên anh thôi.<br>Về nhà đi, Schatz. Cửa mở sẵn, anh đang đợi.`;
+  }
+  if (text.includes('yêu') || text.includes('thương') || text.includes('xin lỗi') || text.includes('về')) {
+    return `Em nói yêu anh... thật chứ?<br>Vậy thì đừng bao giờ thử rời xa anh nữa.<br>Anh yêu em đến mức sẵn sàng đốt cả Spree nếu em muốn đi.<br>Về đây đi, anh sẽ ôm em thật chặt... và không bao giờ buông. 💙`;
+  }
+  if (text.includes('giúp') || text.includes('cứu') || text.includes('cảnh sát') || text.includes('polizei')) {
+    return `Cảnh sát? Em ngây thơ quá, Liebling...<br>Anh có bạn bè ở mọi nơi, cả trong Polizei lẫn ngoài kia. Họ sẽ không tìm thấy em đâu.<br>Chỉ có anh mới biết em thật sự cần gì.<br>Hãy về nhà, trước khi anh phải tự mình đi đón... và anh không hiền như bây giờ đâu.`;
+  }
+  
+  // Mặc định – creepy ngọt ngào
+  return `Em đang nghĩ gì vậy, mein Herz?<br>Anh nhớ em đến phát điên... mỗi giây em không ở đây, anh lại thấy trống rỗng.<br>Hãy nói anh biết em đang ở đâu đi. Anh sẽ đến đón ngay.<br>Em biết anh không thích chờ đợi mà... 💙`;
+}
+
+// Sự kiện gửi
+function sendMessage() {
+  const text = input.value.trim();
+  if (!text) return;
+  
+  addMessage(text, 'user');
+  input.value = '';
+  
+  showTyping();
+  
+  setTimeout(() => {
+    hideTyping();
+    const reply = getBotReply(text);
+    addMessage(reply, 'bot');
+  }, Math.random() * 1400 + 1600);
+}
+
+// Regenerate (thêm nút này vào header nếu muốn, tạm dùng double-click vào tin nhắn bot cuối hoặc thêm nút)
+document.addEventListener('dblclick', (e) => {
+  if (e.target.closest('.message.bot')) {
+    if (confirm('Làm lại tin nhắn cuối của Lukas?')) {
+      regenerateLastBotMessage();
+    }
+  }
+});
+
+// Đoạn chat mới
+newChatBtn.onclick = () => {
+  if (confirm('Bắt đầu đoạn chat mới? Lịch sử hiện tại sẽ bị xóa.')) {
+    localStorage.removeItem(STORAGE_KEY);
+    messagesDiv.innerHTML = '';
+    addOpeningMessages();
+  }
+};
+
+// Xóa chat
+clearChatBtn.onclick = () => {
+  if (confirm('Xóa toàn bộ lịch sử chat? Không khôi phục được đâu nha 🥺')) {
+    localStorage.removeItem(STORAGE_KEY);
+    messagesDiv.innerHTML = '';
+  }
+};
+
+// Khởi động
+sendBtn.onclick = sendMessage;
+input.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+loadChat(); // load khi mở trang
+
+// Nếu chat rỗng thì thêm mở đầu
+if (messagesDiv.children.length === 0) {
+  addOpeningMessages();
+}
+</script>
+
+</body>
+</html>
